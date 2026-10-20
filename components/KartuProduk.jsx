@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { formatRupiah, kategoriKeSlug } from "@/lib/format";
 import TombolFavorit from "@/components/TombolFavorit";
+import TombolKeranjang from "@/components/TombolKeranjang";
+import TombolBandingkan from "@/components/TombolBandingkan";
 
 export default function KartuProduk({ produk }) {
   const slugKategori = produk.kategori ? kategoriKeSlug(produk.kategori) : null;
@@ -79,6 +81,11 @@ export default function KartuProduk({ produk }) {
               {formatRupiah(produk.harga)}
             </span>
           )}
+        </div>
+
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          <TombolKeranjang produk={produk} />
+          <TombolBandingkan produk={produk} />
         </div>
       </div>
     </div>
