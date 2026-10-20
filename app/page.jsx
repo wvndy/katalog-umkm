@@ -1,6 +1,7 @@
 import Link from "next/link";
 import KartuProduk from "@/components/KartuProduk";
 import TerakhirDilihat from "@/components/TerakhirDilihat";
+import BannerBeranda from "@/components/BannerBeranda";
 import Tombol from "@/components/Tombol";
 import { toko } from "@/lib/toko";
 import { buatClientServer } from "@/lib/supabase/server";
@@ -101,6 +102,8 @@ export default async function HalamanKatalog({ searchParams }) {
         <p className="mt-3 max-w-xl text-lg text-teks-lembut">{toko.tagline}</p>
         <p className="mt-4 text-sm text-teks-lembut">{toko.jamBuka}</p>
       </section>
+
+      <BannerBeranda />
 
       <section aria-labelledby="judul-produk" className="flex flex-col gap-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
