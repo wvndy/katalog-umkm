@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { buatClientAuth } from "@/lib/supabase/auth";
 import { buatDeskripsiProdukAI } from "@/lib/gemini";
+import { unggahFotoStorage } from "@/lib/upload";
+import { catatLog } from "@/lib/log-aktivitas";
 
 async function ambilSesiAdmin() {
   const supabase = await buatClientAuth();
@@ -166,11 +168,24 @@ export async function tambahProduk(prevState, formData) {
     };
   }
 
+  let fotoUrl = values.foto_url || null;
+  const fileFoto = formData.get("file_foto");
+  if (fileFoto && typeof fileFoto !== "string" && fileFoto.size > 0) {
+    try {
+      fotoUrl = await unggahFotoStorage(fileFoto);
+    } catch (err) {
+      return {
+        error: err.message,
+        values,
+      };
+    }
+  }
+
   const { error } = await supabase.from("produk").insert({
     nama: values.nama,
     harga,
     kategori: values.kategori || null,
-    foto_url: values.foto_url || null,
+    foto_url: fotoUrl,
     deskripsi: values.deskripsi || null,
   });
 
@@ -181,6 +196,7 @@ export async function tambahProduk(prevState, formData) {
     };
   }
 
+  await catatLog(user.email, "Tambah produk", values.nama);
   segarkanHalamanProduk();
   redirect("/admin?pesan=ditambah");
 }
@@ -208,13 +224,26 @@ export async function ubahProduk(prevState, formData) {
     };
   }
 
+  let fotoUrl = values.foto_url || null;
+  const fileFoto = formData.get("file_foto");
+  if (fileFoto && typeof fileFoto !== "string" && fileFoto.size > 0) {
+    try {
+      fotoUrl = await unggahFotoStorage(fileFoto);
+    } catch (err) {
+      return {
+        error: err.message,
+        values: { ...values, id },
+      };
+    }
+  }
+
   const { data, error } = await supabase
     .from("produk")
     .update({
       nama: values.nama,
       harga,
       kategori: values.kategori || null,
-      foto_url: values.foto_url || null,
+      foto_url: fotoUrl,
       deskripsi: values.deskripsi || null,
     })
     .eq("id", id)
@@ -227,6 +256,7 @@ export async function ubahProduk(prevState, formData) {
     };
   }
 
+  await catatLog(user.email, "Ubah produk", `${values.nama} (ID ${id})`);
   segarkanHalamanProduk(id);
   redirect("/admin?pesan=diubah");
 }
@@ -254,8 +284,79 @@ export async function hapusProduk(prevState, formData) {
     return { error: "Produk gagal dihapus. Coba muat ulang halaman ini." };
   }
 
+  await catatLog(user.email, "Hapus produk", `ID ${id}`);
   segarkanHalamanProduk(id);
   return { sukses: "Produk berhasil dihapus." };
+}
+
+export async function tambahFotoGaleri(formData) {
+  const { supabase, user } = await ambilSesiAdmin();
+  if (!user) redirect("/admin/login");
+
+  const produkId = Number(formData.get("produk_id"));
+  const urlTeks = formData.get("foto_url")?.toString()?.trim();
+  const file = formData.get("file_foto");
+
+  let fotoUrl = urlTeks;
+  if (file && typeof file !== "string" && file.size > 0) {
+    fotoUrl = await unggahFotoStorage(file);
+  }
+
+  if (!fotoUrl) return { error: "Pilih file foto atau isi link foto." };
+
+  await supabase.from("produk_foto").insert({
+    produk_id: produkId,
+    foto_url: fotoUrl,
+  });
+
+  await catatLog(user.email, "Tambah foto produk", `ID Produk ${produkId}`);
+  segarkanHalamanProduk(produkId);
+}
+
+export async function hapusFotoGaleri(formData) {
+  const { supabase, user } = await ambilSesiAdmin();
+  if (!user) redirect("/admin/login");
+
+  const id = Number(formData.get("id"));
+  const produkId = Number(formData.get("produk_id"));
+
+  await supabase.from("produk_foto").delete().eq("id", id);
+  await catatLog(user.email, "Hapus foto galeri", `ID Foto ${id}`);
+  segarkanHalamanProduk(produkId);
+}
+
+export async function tambahVarianAksi(formData) {
+  const { supabase, user } = await ambilSesiAdmin();
+  if (!user) redirect("/admin/login");
+
+  const produkId = Number(formData.get("produk_id"));
+  const nama = formData.get("nama")?.toString()?.trim();
+  const harga = Number(formData.get("harga"));
+
+  if (!nama || !Number.isInteger(harga) || harga < 0) {
+    return { error: "Nama varian dan harga valid wajib diisi." };
+  }
+
+  await supabase.from("varian_produk").insert({
+    produk_id: produkId,
+    nama,
+    harga,
+  });
+
+  await catatLog(user.email, "Tambah varian", `${nama} (Rp ${harga})`);
+  segarkanHalamanProduk(produkId);
+}
+
+export async function hapusVarianAksi(formData) {
+  const { supabase, user } = await ambilSesiAdmin();
+  if (!user) redirect("/admin/login");
+
+  const id = Number(formData.get("id"));
+  const produkId = Number(formData.get("produk_id"));
+
+  await supabase.from("varian_produk").delete().eq("id", id);
+  await catatLog(user.email, "Hapus varian", `ID ${id}`);
+  segarkanHalamanProduk(produkId);
 }
 
 export async function toggleAktifProduk(formData) {
